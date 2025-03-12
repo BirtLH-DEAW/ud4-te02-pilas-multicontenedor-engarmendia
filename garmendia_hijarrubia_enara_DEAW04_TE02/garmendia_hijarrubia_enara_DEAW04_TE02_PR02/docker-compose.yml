@@ -1,0 +1,46 @@
+version: '3.7'
+
+services:
+  # Servicio que ejecutará el setup.sh
+  init:
+    image: debian:bullseye-slim
+    user: root  # Ejecutar como root para evitar problemas de permisos
+    volumes:
+      - .:/app  # Mapea todo el proyecto a /app dentro del contenedor
+    working_dir: /app
+    command: ["sh", "-c", "apt-get update && apt-get install -y git && /app/setup.sh"]
+    entrypoint: ["sh", "-c", "apt-get update && apt-get install -y git && /app/setup.sh"]
+    # Se asegura de que se ejecute el setup.sh antes de terminar el contenedor
+  
+  # Servicio de MySQL
+  mysql:
+    image: mysql:5.7
+    depends_on:
+      - init  # Asegura que el contenedor init se ejecute antes de MySQL
+    command: ["sh", "-c", "sleep 20 && docker-entrypoint.sh mysqld"]  # Agrega un retraso para asegurar que los archivos estén listos
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: dwes
+      MYSQL_PASSWORD: dwes
+      MYSQL_DATABASE: dwes
+    volumes:
+      - ./mysql:/docker-entrypoint-initdb.d  # Asegura que los archivos SQL estén disponibles para MySQL
+
+  # Servicio de phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      MYSQL_ROOT_PASSWORD: root
+
+  # Servicio de Apache
+  apache:
+    build: ./apache
+    ports:
+      - "80:80"
+    volumes:
+      - ./public_html:/var/www/html
