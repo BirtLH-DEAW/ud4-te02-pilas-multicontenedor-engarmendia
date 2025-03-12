@@ -1,0 +1,81 @@
+# Definición de los servicios que serán desplegados con Docker Compose
+services:
+  
+  # Servicio para la base de datos MySQL
+  mysql:
+    # Imagen de Docker que se usará para el contenedor, en este caso MySQL versión 5.7
+    image: mysql:5.7
+    # Nombre que tendrá el contenedor de MySQL
+    container_name: mysql_db
+    environment:
+      # Definición de las variables de entorno necesarias para MySQL
+      MYSQL_ROOT_PASSWORD: root            # Contraseña para el usuario root
+      MYSQL_USER: froga                    # Usuario estándar para la base de datos
+      MYSQL_PASSWORD: froga                # Contraseña para el usuario estándar
+      MYSQL_DATABASE: froga                # Nombre de la base de datos inicial
+    ports:
+      # Exponer el puerto 3306 del contenedor al puerto 3306 del host (para conectarse a MySQL desde fuera)
+      - "3306:3306"
+    volumes:
+      # Persistir los datos de MySQL en el volumen 'mysql_data' en el host para mantenerlos entre reinicios
+      - mysql_data:/var/lib/mysql
+    networks:
+      # Conexión a la red personalizada 'wordpress_network' para permitir comunicación entre los servicios
+      - wordpress_network
+
+  # Servicio para el contenedor de WordPress
+  wordpress:
+    # Iniciar el contenedor a partir de una imagen construida desde el directorio './wordpress'
+    build: ./wordpress
+    # Nombre del contenedor de WordPress
+    container_name: wordpress
+    environment:
+      # Variables de entorno para configurar la conexión de WordPress a la base de datos
+      WORDPRESS_DB_HOST: mysql:3306        # Dirección del host MySQL (nombre del contenedor 'mysql')
+      WORDPRESS_DB_NAME: froga             # Nombre de la base de datos a la que se conectará
+      WORDPRESS_DB_USER: froga             # Usuario que se utilizará para conectarse a la base de datos
+      WORDPRESS_DB_PASSWORD: froga         # Contraseña del usuario de la base de datos
+    ports:
+      # Exponer el puerto 80 del contenedor al puerto 80 del host para acceder al sitio web de WordPress
+      - "80:80"
+    volumes:
+      # Persistir los archivos de WordPress en el volumen 'wordpress_data' en el host
+      - wordpress_data:/var/www/html
+    networks:
+      # Conexión a la red personalizada 'wordpress_network'
+      - wordpress_network
+    depends_on:
+      # Asegurarse de que MySQL esté disponible antes de iniciar WordPress
+      - mysql
+
+  # Servicio para el contenedor de phpMyAdmin
+  phpmyadmin:
+    # Imagen oficial de phpMyAdmin en Docker Hub
+    image: phpmyadmin/phpmyadmin
+    # Nombre del contenedor de phpMyAdmin
+    container_name: phpmyadmin
+    environment:
+      # Variables de entorno para configurar la conexión a la base de datos MySQL
+      PMA_HOST: mysql                       # Dirección del host MySQL (nombre del contenedor 'mysql')
+      PMA_USER: froga                       # Usuario de la base de datos MySQL para usar en phpMyAdmin
+      PMA_PASSWORD: froga                   # Contraseña de dicho usuario
+    ports:
+      # Exponer el puerto 80 del contenedor al puerto 8081 del host para acceder a phpMyAdmin en el navegador
+      - "8081:80"
+    networks:
+      # Conexión a la red personalizada 'wordpress_network'
+      - wordpress_network
+    depends_on:
+      # Asegurarse de que MySQL esté disponible antes de iniciar phpMyAdmin
+      - mysql
+
+# Volúmenes para persistir los datos entre reinicios de los contenedores
+volumes:
+  mysql_data:         # Volumen para los datos de la base de datos MySQL
+  wordpress_data:     # Volumen para los archivos de WordPress (temas, plugins, contenidos)
+
+# Red personalizada que utilizan los servicios para comunicarse entre sí
+networks:
+  wordpress_network:
+    # Usamos el controlador 'bridge' para la red, que es la opción predeterminada
+    driver: bridge
